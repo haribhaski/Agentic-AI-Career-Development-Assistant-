@@ -1,0 +1,59 @@
+# Core AI & Agents (All Free!)
+langgraph>=0.6.0,<1.0.0
+langchain>=0.3.0,<0.5.0
+langchain-community>=0.3.0,<0.5.0
+langgraph-swarm>=0.0.15
+langchain-groq==0.2.0
+openai==1.54.0  # For DeepSeek R1
+
+# Memory & RAG
+chromadb==0.5.0
+mem0ai==0.1.0
+llama-index==0.11.0
+
+# Database & Storage
+supabase==2.8.0
+psycopg2-binary==2.9.9
+redis==5.0.0
+
+# Embeddings (Free)
+nomic==3.0.0
+sentence-transformers==2.7.0
+
+# Document Processing (Free)
+pymupdf==1.24.0
+python-docx==1.1.0
+pypdf==4.3.0
+python-magic==0.4.27
+unstructured==0.15.0
+
+# Web Scraping (Free)
+playwright==1.45.0
+beautifulsoup4==4.12.3
+requests==2.32.0
+firecrawl-py==0.0.10
+
+# Search APIs (Free tier)
+google-search-results==2.4.2  # Serper
+duckduckgo-search==6.0.0
+
+# Voice (Free/Open Source)
+openai-whisper==20231117
+pyaudio==0.2.14
+piper-tts
+
+# API & Server
+fastapi==0.115.0
+uvicorn==0.30.0
+python-multipart==0.0.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.9.0
+pydantic-settings==2.5.0
+pillow==10.4.0
+numpy==1.26.0
+pandas==2.2.0
+tenacity
