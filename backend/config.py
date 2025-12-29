@@ -3,29 +3,27 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # API Keys
-    groq_api_key: str
-    deepseek_api_key: str
-    gemini_api_key: str
+    groq_api_key: str = ""
+    deepseek_api_key: str = ""
+    gemini_api_key: str = ""
+    serper_api_key: str = ""
+    firecrawl_api_key: str = ""
+    nomic_api_key: str = ""
     
-    # Database
-    supabase_url: str
-    supabase_key: str
-    redis_url: str = "redis://localhost:6379"
+    # Supabase
+    supabase_url: str = ""
+    supabase_key: str = ""
     
-    # Search
-    serper_api_key: str
-    brave_api_key: str
-    
-    # Security
-    jwt_secret_key: str
+    # JWT
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
     
-    # Environment
-    environment: str = "development"
+    # Redis
+    redis_url: str = "redis://localhost:6379"
     
     class Config:
         env_file = ".env"
+        case_sensitive = False
 
 @lru_cache()
 def get_settings():
