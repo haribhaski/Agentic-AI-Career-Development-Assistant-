@@ -21,9 +21,16 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379"
     
+    # Missing fields from .env
+    brave_api_key: str = ""
+    llama_cloud_api_key: str = ""
+    access_token_expire_minutes: int = 30
+    environment: str = "development"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 @lru_cache()
 def get_settings():

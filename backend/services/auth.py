@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from models.user import User
 from config import get_settings
@@ -8,7 +8,7 @@ settings = get_settings()
 security = HTTPBearer()
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     """Validate JWT token and return current user"""
     try:

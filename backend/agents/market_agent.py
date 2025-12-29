@@ -1,29 +1,34 @@
 
-from typing import Dict, List
-import aiohttp
-from bs4 import BeautifulSoup
+from typing import Dict, List, Any
+from langchain_core.messages import HumanMessage
+from firecrawl import FirecrawlApp
+import httpx
 import json
+from config import get_settings
+
+settings = get_settings()
 
 class MarketIntelligenceAgent:
-    """Searches jobs, analyzes market trends, finds opportunities"""
+    """Searches jobs, analyzes market trends using Serper & Firecrawl"""
     
     def __init__(self, llm):
         self.llm = llm
+        self.firecrawl = FirecrawlApp(api_key=settings.firecrawl_api_key) if settings.firecrawl_api_key else None
     
     async def process(self, state: Dict) -> Dict:
-        """Find and analyze job opportunities"""
+        """Find and analyze job opportunities using 2025 intelligence tools"""
         
         skills = state.get("current_skills", [])
         target_roles = state.get("target_roles", [])
         
-        # Search for jobs
-        jobs = await self._search_jobs(skills, target_roles)
+        # Search for jobs using Serper
+        jobs = await self._search_jobs_serper(skills, target_roles)
         state["job_matches"] = jobs
         
         # Analyze market trends
         trends = await self._analyze_market_trends(skills)
         
-        # Calculate fit scores
+        # Calculate fit scores using reasoning
         scored_jobs = await self._score_job_matches(jobs, skills)
         
         # Generate response
@@ -34,39 +39,75 @@ class MarketIntelligenceAgent:
         
         return state
     
-    async def _search_jobs(
+    async def _search_jobs_serper(
         self,
         skills: List[str],
         roles: List[str]
     ) -> List[Dict]:
-        """Search for jobs using free APIs"""
+        """Search for jobs using Serper.dev API"""
         
-        # Use Serper API (free tier)
-        query = f"{' '.join(roles[:2])} {' '.join(skills[:3])} jobs"
+        if not settings.serper_api_key:
+            return self._fallback_jobs()
+            
+        query = f"{' '.join(roles[:2])} {' '.join(skills[:2])} jobs"
+        url = "https://google.serper.dev/search"
         
-        # Simulate job search (replace with actual API call)
-        jobs = [
+        payload = json.dumps({
+            "q": query,
+            "gl": "us",
+            "hl": "en",
+            "autocorrect": True
+        })
+        headers = {
+            'X-API-KEY': settings.serper_api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, data=payload)
+            if response.status_code == 200:
+                results = response.json()
+                # Parse search results into job objects
+                jobs = []
+                for result in results.get("organic", [])[:10]:
+                    jobs.append({
+                        "title": result.get("title", "Unknown Role"),
+                        "company": result.get("snippet", "").split("-")[0].strip(),
+                        "location": "See link",
+                        "description": result.get("snippet", ""),
+                        "posted": "Recent",
+                        "url": result.get("link", "")
+                    })
+                return jobs
+        
+        return self._fallback_jobs()
+
+    def _fallback_jobs(self) -> List[Dict]:
+        return [
             {
                 "title": "Software Engineer",
                 "company": "TechCorp",
                 "location": "Remote",
-                "description": "Looking for Python and React developer...",
+                "description": "Looking for talented engineers...",
                 "posted": "2 days ago",
-                "url": "https://example.com/job1"
-            },
-            # Add more jobs from actual search
+                "url": "https://linkedin.com/jobs"
+            }
         ]
-        
-        return jobs
     
     async def _score_job_matches(
         self,
         jobs: List[Dict],
         skills: List[str]
     ) -> List[Dict]:
-        """Score each job based on skill match"""
+        """Score each job based on skill match using LLM"""
         
-        for job in jobs:
+        if not jobs:
+            return []
+            
+        # Score top 5 jobs to save tokens/time
+        top_jobs = jobs[:5]
+        
+        for job in top_jobs:
             prompt = f"""Rate how well this candidate matches this job (0-100):
             
             Candidate skills: {skills}
@@ -77,48 +118,46 @@ class MarketIntelligenceAgent:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
             
             try:
-                score = int(response.content.strip())
+                score_text = response.content.strip()
+                # Extract number from response
+                score = int(''.join(filter(str.isdigit, score_text)))
                 job["fit_score"] = score
             except:
                 job["fit_score"] = 50
         
-        # Sort by fit score
-        return sorted(jobs, key=lambda x: x.get("fit_score", 0), reverse=True)
+        return sorted(top_jobs, key=lambda x: x.get("fit_score", 0), reverse=True)
     
     async def _analyze_market_trends(self, skills: List[str]) -> str:
         """Analyze current market demand"""
         
-        prompt = f"""Analyze the current job market for someone with these skills: {skills}
+        prompt = f"""Analyze the 2025 job market trends for someone with these skills: {skills}
         
-        Provide:
-        1. Market demand (hot/moderate/slow)
-        2. Average salary range
-        3. Trending skills in this space
-        4. Geographic hotspots
+        Include:
+        1. Current demand & salary expectations
+        2. Impact of AI in this field
+        3. Emerging skills to watch
         
-        Be data-driven and realistic."""
+        Be concise and insightful."""
         
         response = await self.llm.ainvoke([HumanMessage(content=prompt)])
         return response.content
     
     async def _generate_response(self, jobs: List[Dict], trends: str) -> str:
-        """Generate user-friendly response"""
+        """Generate user-friendly response with 2025 insights"""
         
-        response = f"""## Job Market Analysis
-
+        response = f"""## 📊 Market Intelligence Insights
+        
 {trends}
 
-### Top Matches for You
+### 🎯 Strategic Job Matches
 
 """
-        for i, job in enumerate(jobs[:5], 1):
-            response += f"""
-{i}. **{job['title']}** at {job['company']}
-   - Location: {job['location']}
-   - Fit Score: {job.get('fit_score', 'N/A')}%
-   - Posted: {job['posted']}
-   - [View Job]({job['url']})
-   
+        for i, job in enumerate(jobs, 1):
+            response += f"""{i}. **{job['title']}** | {job['company']}
+   - **Fit Score:** {job.get('fit_score', 'N/A')}%
+   - **Insight:** {job['description'][:150]}...
+   - [Apply Now]({job['url']})
+
 """
         
         return response

@@ -1,9 +1,11 @@
 # Create the orchestrator with full code
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langgraph.graph import StateGraph, END
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
+from langgraph.graph import StateGraph, END, START
 from langgraph.checkpoint.memory import MemorySaver
+
 from agents.profile_agent import ProfileAgent
 from agents.market_agent import MarketIntelligenceAgent
 from agents.learning_agent import LearningPathAgent
@@ -16,46 +18,58 @@ from config import get_settings
 
 settings = get_settings()
 
-class AgentState(dict):
-    """State shared across all agents"""
+class AgentState(Dict[str, Any]):
+    """State shared across all agents using typed dict pattern for LangGraph 0.2"""
     user_id: str
-    messages: List[Any]
-    user_profile: Dict
+    messages: List[BaseMessage]
+    user_profile: Dict[str, Any]
     current_skills: List[str]
-    skill_gaps: List[str]
+    skill_gaps: List[Dict[str, Any]]
     target_roles: List[str]
-    job_matches: List[Dict]
-    learning_plan: Dict
+    job_matches: List[Dict[str, Any]]
+    learning_plan: Dict[str, Any]
     next_agent: str
     final_response: str
 
 class CareerOrchestrator:
-    """Main orchestrator that coordinates all specialized agents"""
+    """Main orchestrator that coordinates all specialized agents using Swarm & MCP patterns"""
     
     def __init__(self):
-        # Initialize LLM
-        self.llm = ChatGroq(
+        # Initialize LLMs according to 2025 Tech Stack
+        # DeepSeek R1 for complex reasoning
+        self.reasoning_llm = ChatOpenAI(
+            model="deepseek-reasoner",
+            openai_api_key=settings.deepseek_api_key,
+            base_url="https://api.deepseek.com",
+            temperature=0
+        )
+        
+        # Groq Llama 3.3 for ultra-fast responses (700+ t/s)
+        self.fast_llm = ChatGroq(
             model="llama-3.3-70b-versatile",
             temperature=0.7,
-            api_key=settings.groq_api_key
-        ) if settings.groq_api_key else None
+            groq_api_key=settings.groq_api_key
+        )
+        
+        # Default LLM
+        self.llm = self.fast_llm
         
         # Initialize specialized agents
-        self.profile_agent = ProfileAgent(self.llm)
-        self.market_agent = MarketIntelligenceAgent(self.llm)
-        self.learning_agent = LearningPathAgent(self.llm)
-        self.application_agent = ApplicationAgent(self.llm)
-        self.interview_agent = InterviewAgent(self.llm)
-        self.feedback_agent = FeedbackAgent(self.llm)
+        self.profile_agent = ProfileAgent(self.reasoning_llm)
+        self.market_agent = MarketIntelligenceAgent(self.fast_llm)
+        self.learning_agent = LearningPathAgent(self.fast_llm)
+        self.application_agent = ApplicationAgent(self.reasoning_llm)
+        self.interview_agent = InterviewAgent(self.fast_llm)
+        self.feedback_agent = FeedbackAgent(self.fast_llm)
         
         # Memory service for long-term storage
         self.memory = MemoryService()
         
-        # Build LangGraph workflow
+        # Build LangGraph 0.2 workflow
         self.workflow = self._build_workflow()
     
     def _build_workflow(self) -> StateGraph:
-        """Build the agent workflow graph"""
+        """Build the agent workflow graph using LangGraph 0.2 syntax"""
         workflow = StateGraph(AgentState)
         
         # Add nodes (agents)
@@ -67,8 +81,8 @@ class CareerOrchestrator:
         workflow.add_node("interview", self.interview_agent.process)
         workflow.add_node("feedback", self.feedback_agent.process)
         
-        # Set entry point
-        workflow.set_entry_point("router")
+        # Set entry point using START
+        workflow.add_edge(START, "router")
         
         # Add conditional edges based on routing
         workflow.add_conditional_edges(
@@ -85,7 +99,7 @@ class CareerOrchestrator:
             }
         )
         
-        # All agents can route back to router or end
+        # Swarm pattern: Agents can transfer back to router or end
         for agent in ["profile", "market", "learning", "application", "interview", "feedback"]:
             workflow.add_conditional_edges(
                 agent,
@@ -103,40 +117,43 @@ class CareerOrchestrator:
             )
         
         # Compile with memory
-        memory = MemorySaver()
-        return workflow.compile(checkpointer=memory)
+        checkpointer = MemorySaver()
+        return workflow.compile(checkpointer=checkpointer)
     
     async def _route_request(self, state: AgentState) -> AgentState:
-        """Intelligent routing based on user message"""
-        last_message = state["messages"][-1] if state["messages"] else ""
+        """Intelligent routing using Swarm-like handover logic"""
+        last_message = state["messages"][-1].content if state["messages"] else ""
         
-        if not self.llm:
-            state["next_agent"] = "end"
-            state["final_response"] = "LLM not configured. Please add GROQ_API_KEY to .env"
-            return state
+        routing_prompt = f"""You are the Career AI Orchestrator. Route this request to the most suitable agent.
         
-        routing_prompt = f"""Based on this user message, determine which agent should handle it:
+        User Message: {last_message}
         
-        Message: {last_message}
+        Available Agents:
+        - profile: Extract skills, analyze resume, career stage assessment
+        - market: Search jobs, market trends, salary data (uses Serper/Firecrawl)
+        - learning: Skill gap analysis, personalized roadmaps, course recommendations
+        - application: Tailor resume, cover letters, application strategy
+        - interview: Mock interviews, technical/behavioral practice
+        - feedback: Analyze rejections, strategy pivots, continuous learning
         
-        Available agents:
-        - profile: Resume analysis, skill extraction, profile updates
-        - market: Job search, market trends, salary research
-        - learning: Skill gaps, learning paths, course recommendations
-        - application: Resume tailoring, cover letters, application tracking
-        - interview: Mock interviews, interview prep, feedback
-        - feedback: Application outcomes, rejection analysis, strategy updates
+        Respond with ONLY the agent name."""
         
-        Respond with ONLY the agent name (no explanation)."""
+        # Use reasoning model for better routing
+        response = await self.reasoning_llm.ainvoke([
+            SystemMessage(content="You are a routing expert. Respond with exactly one word."),
+            HumanMessage(content=routing_prompt)
+        ])
         
-        response = await self.llm.ainvoke([HumanMessage(content=routing_prompt)])
         state["next_agent"] = response.content.strip().lower()
-        
         return state
     
     def _determine_next_agent(self, state: AgentState) -> str:
         """Determine next agent or end"""
-        return state.get("next_agent", "end")
+        agent = state.get("next_agent", "end")
+        if agent not in ["profile", "market", "learning", "application", "interview", "feedback", "router"]:
+            return END
+        return agent
+
     
     async def process_message(
         self,

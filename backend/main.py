@@ -142,12 +142,12 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
-from .profile_agent import ProfileAgent
-from .market_agent import MarketIntelligenceAgent
-from .learning_agent import LearningPathAgent
-from .application_agent import ApplicationAgent
-from .interview_agent import InterviewAgent
-from .agents.feedback_agent import FeedbackAgent
+from agents.profile_agent import ProfileAgent
+from agents.market_agent import MarketIntelligenceAgent
+from agents.learning_agent import LearningPathAgent
+from agents.application_agent import ApplicationAgent
+from agents.interview_agent import InterviewAgent
+from agents.feedback_agent import FeedbackAgent
 from services.memory import MemoryService
 from services.supabase_client import supabase_client
 from config import get_settings
