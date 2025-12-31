@@ -21,3 +21,5 @@ google-search-results==3.5.0
 mcp==1.1.2
 nomic==3.1.2
 pyjwt==2.10.1
+firecrawl-py
+langchain-openai

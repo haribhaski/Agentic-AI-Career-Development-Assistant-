@@ -1,5 +1,6 @@
 from typing import Dict, List
 from langchain_core.messages import HumanMessage
+import json 
 
 class ApplicationAgent:
     """Handles resume tailoring, cover letters, applications"""
