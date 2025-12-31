@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, ArrowLeft, Mail, Lock, User, Eye, EyeOff, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const careerGoals = [
   { id: 'first-job', label: 'Land my first job', icon: '🎯' },
@@ -26,7 +26,6 @@ const experienceLevels = [
 
 export default function SignupPage() {
   const router = useRouter()
-  const supabase = createClient()
   
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
@@ -497,7 +496,7 @@ export default function SignupPage() {
         {/* Login Link */}
         <p className="text-center mt-6 text-sm text-gray-600">
           Already have an account?{' '}
-          <Link href="/auth/login" className="font-semibold text-blue-600 hover:text-blue-700">
+          <Link href="/" className="font-semibold text-blue-600 hover:text-blue-700">
             Sign in
           </Link>
         </p>
