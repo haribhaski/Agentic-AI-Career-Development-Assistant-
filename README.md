@@ -2,6 +2,8 @@
 
 100% Free, State-of-the-art career development system using latest 2025 AI technology.
 
+# DEMO Video Link: https://youtu.be/HYbsjLWlvkI
+
 ## Tech Stack
 
 ### Frontend
